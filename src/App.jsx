@@ -28,7 +28,7 @@ export default function App() {
   const [comparisonList, setComparisonList] = useState([]);
   const [adminUser, setAdminUser] = useState(() => {
     try {
-      const stored = localStorage.getItem('gpi_admin_auth');
+      const stored = localStorage.getItem('gpi_admin_auth') || localStorage.getItem('gpi_user_auth');
       return stored ? JSON.parse(stored) : null;
     } catch {
       return null;
@@ -37,11 +37,16 @@ export default function App() {
 
   const handleLoginSuccess = (user) => {
     setAdminUser(user);
-    setActiveTab('admin_directory');
+    if (user.role === 'admin') {
+      setActiveTab('admin_directory');
+    } else {
+      setActiveTab('dashboard');
+    }
   };
 
   const handleLogout = () => {
     localStorage.removeItem('gpi_admin_auth');
+    localStorage.removeItem('gpi_user_auth');
     setAdminUser(null);
     setActiveTab('dashboard');
   };
@@ -265,10 +270,10 @@ export default function App() {
               </button>
               <span>•</span>
               <button 
-                onClick={() => setActiveTab(adminUser ? 'admin_directory' : 'login')} 
+                onClick={() => setActiveTab(adminUser ? (adminUser.role === 'admin' ? 'admin_directory' : 'dashboard') : 'login')} 
                 className="hover:text-slate-200 transition-colors"
               >
-                {adminUser ? 'Admin Portal' : 'Admin Login'}
+                {adminUser ? (adminUser.role === 'admin' ? 'Admin Portal' : 'Signed In') : 'Sign In'}
               </button>
               <span>•</span>
               <span className="text-slate-500">Official Reference Sources</span>

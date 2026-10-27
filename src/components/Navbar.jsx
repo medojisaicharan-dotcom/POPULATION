@@ -77,17 +77,24 @@ export const Navbar = ({ activeTab, setActiveTab, adminUser, onOpenLogin, onLogo
           <div className="flex items-center gap-2.5 shrink-0">
             {adminUser ? (
               <div className="flex items-center gap-2">
-                <button
-                  onClick={() => setActiveTab('admin_directory')}
-                  className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold border transition-all ${
-                    activeTab === 'admin_directory'
-                      ? 'bg-emerald-600 text-white border-emerald-500 shadow-md shadow-emerald-500/20'
-                      : 'bg-emerald-950/40 text-emerald-300 border-emerald-500/40 hover:bg-emerald-900/50'
-                  }`}
-                >
-                  <ShieldCheck className="w-3.5 h-3.5" />
-                  <span>Admin Portal</span>
-                </button>
+                {adminUser.role === 'admin' ? (
+                  <button
+                    onClick={() => setActiveTab('admin_directory')}
+                    className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold border transition-all ${
+                      activeTab === 'admin_directory'
+                        ? 'bg-emerald-600 text-white border-emerald-500 shadow-md shadow-emerald-500/20'
+                        : 'bg-emerald-950/40 text-emerald-300 border-emerald-500/40 hover:bg-emerald-900/50'
+                    }`}
+                  >
+                    <ShieldCheck className="w-3.5 h-3.5" />
+                    <span>Admin Portal</span>
+                  </button>
+                ) : (
+                  <div className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium bg-slate-900 border border-slate-700 text-slate-300">
+                    <UserCheck className="w-3.5 h-3.5 text-emerald-400" />
+                    <span className="max-w-[120px] truncate">{adminUser.email?.split('@')[0] || 'Member'}</span>
+                  </div>
+                )}
                 <button
                   onClick={onLogout}
                   className="px-2.5 py-1.5 rounded-lg text-xs text-slate-400 hover:text-rose-400 hover:bg-slate-900 transition-colors"
@@ -102,7 +109,7 @@ export const Navbar = ({ activeTab, setActiveTab, adminUser, onOpenLogin, onLogo
                 className="flex items-center gap-1.5 px-3.5 py-1.5 rounded-xl bg-slate-900 hover:bg-slate-800 text-slate-200 hover:text-white border border-slate-700 text-xs font-semibold transition-all shadow-sm"
               >
                 <LogIn className="w-3.5 h-3.5 text-indigo-400" />
-                <span>Admin Login</span>
+                <span>Sign In</span>
               </button>
             )}
           </div>
