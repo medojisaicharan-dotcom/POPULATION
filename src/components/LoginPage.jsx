@@ -6,18 +6,14 @@ import {
   EyeOff, 
   LogIn, 
   ShieldCheck, 
-  Sparkles, 
   ArrowRight,
   AlertCircle,
   CheckCircle2,
-  KeyRound,
-  User,
-  Zap
+  KeyRound
 } from 'lucide-react';
 import { supabase, isSupabaseConfigured } from '../lib/supabase';
 
-export const LoginPage = ({ onLoginSuccess, onCancel, initialMode = 'user' }) => {
-  const [loginMode, setLoginMode] = useState(initialMode); // 'user' | 'admin'
+export const LoginPage = ({ onLoginSuccess, onCancel }) => {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
@@ -26,23 +22,15 @@ export const LoginPage = ({ onLoginSuccess, onCancel, initialMode = 'user' }) =>
   const [error, setError] = useState('');
   const [success, setSuccess] = useState('');
 
-  // Quick 1-Click Demo Login for Users
-  const handleQuickDemoUserLogin = () => {
-    setIsLoading(true);
-    setTimeout(() => {
-      const demoProfile = {
-        email: 'user@population-intelligence.org',
-        fullName: 'Demographics Member',
-        role: 'user'
-      };
-      if (rememberMe) {
-        localStorage.setItem('gpi_user_auth', JSON.stringify(demoProfile));
-      }
-      setSuccess('Signed in successfully as User!');
-      setTimeout(() => {
-        onLoginSuccess(demoProfile);
-      }, 500);
-    }, 300);
+  // Check if this email is an admin email
+  const checkIsAdmin = (userEmail) => {
+    const configuredAdmin = (import.meta.env.VITE_ADMIN_EMAIL || '').toLowerCase().trim();
+    const normalized = userEmail.toLowerCase().trim();
+    if (configuredAdmin) {
+      return normalized === configuredAdmin;
+    }
+    // Default fallback check
+    return normalized.startsWith('admin') || normalized.includes('@admin.');
   };
 
   const handleSubmit = async (e) => {
@@ -63,7 +51,10 @@ export const LoginPage = ({ onLoginSuccess, onCancel, initialMode = 'user' }) =>
     setIsLoading(true);
 
     try {
-      // If Supabase is configured with Auth
+      const isAdmin = checkIsAdmin(email);
+      const role = isAdmin ? 'admin' : 'user';
+
+      // 1. If Supabase is configured with Supabase Auth
       if (supabase && isSupabaseConfigured) {
         const { data, error: authError } = await supabase.auth.signInWithPassword({
           email: email.trim(),
@@ -73,12 +64,12 @@ export const LoginPage = ({ onLoginSuccess, onCancel, initialMode = 'user' }) =>
         if (!authError && data?.user) {
           const profile = {
             email: data.user.email,
-            role: loginMode === 'admin' ? 'admin' : 'user',
+            role,
             authenticatedVia: 'supabase'
           };
-          setSuccess(`Signed in successfully as ${loginMode === 'admin' ? 'Admin' : 'User'}!`);
+          setSuccess(`Signed in successfully!`);
           if (rememberMe) {
-            localStorage.setItem(loginMode === 'admin' ? 'gpi_admin_auth' : 'gpi_user_auth', JSON.stringify(profile));
+            localStorage.setItem(isAdmin ? 'gpi_admin_auth' : 'gpi_user_auth', JSON.stringify(profile));
           }
           setTimeout(() => {
             onLoginSuccess(profile);
@@ -87,16 +78,16 @@ export const LoginPage = ({ onLoginSuccess, onCancel, initialMode = 'user' }) =>
         }
       }
 
-      // Fast Local Authentication
+      // 2. Local session authentication
       const profile = {
         email: email.trim(),
-        role: loginMode === 'admin' ? 'admin' : 'user',
+        role,
         authenticatedVia: 'local'
       };
 
-      setSuccess(`Signed in successfully as ${loginMode === 'admin' ? 'Administrator' : 'User'}!`);
+      setSuccess(`Signed in successfully!`);
       if (rememberMe) {
-        localStorage.setItem(loginMode === 'admin' ? 'gpi_admin_auth' : 'gpi_user_auth', JSON.stringify(profile));
+        localStorage.setItem(isAdmin ? 'gpi_admin_auth' : 'gpi_user_auth', JSON.stringify(profile));
       }
       setTimeout(() => {
         onLoginSuccess(profile);
@@ -110,99 +101,47 @@ export const LoginPage = ({ onLoginSuccess, onCancel, initialMode = 'user' }) =>
   };
 
   return (
-    <div className="max-w-md mx-auto my-6 p-6 sm:p-8 rounded-2xl bg-slate-900/90 border border-slate-800 shadow-2xl relative overflow-hidden animate-in fade-in zoom-in-95 duration-200">
+    <div className="max-w-md mx-auto my-8 p-6 sm:p-8 rounded-2xl bg-slate-900/90 border border-slate-800 shadow-2xl relative overflow-hidden animate-in fade-in zoom-in-95 duration-200">
       
       {/* Background glow */}
       <div className="absolute top-0 right-0 w-64 h-64 bg-indigo-500/10 rounded-full blur-3xl pointer-events-none" />
       <div className="absolute bottom-0 left-0 w-64 h-64 bg-emerald-500/10 rounded-full blur-3xl pointer-events-none" />
 
-      <div className="relative z-10 space-y-5">
+      <div className="relative z-10 space-y-6">
         
-        {/* Toggle Mode: User Login vs Admin Login */}
-        <div className="flex items-center bg-slate-950 p-1 rounded-xl border border-slate-800">
-          <button
-            type="button"
-            onClick={() => {
-              setLoginMode('user');
-              setError('');
-              setSuccess('');
-            }}
-            className={`flex-1 flex items-center justify-center gap-1.5 py-2 rounded-lg text-xs font-bold transition-all ${
-              loginMode === 'user'
-                ? 'bg-indigo-600 text-white shadow-md shadow-indigo-600/30'
-                : 'text-slate-400 hover:text-white'
-            }`}
-          >
-            <User className="w-3.5 h-3.5" />
-            <span>User Login</span>
-          </button>
-
-          <button
-            type="button"
-            onClick={() => {
-              setLoginMode('admin');
-              setError('');
-              setSuccess('');
-            }}
-            className={`flex-1 flex items-center justify-center gap-1.5 py-2 rounded-lg text-xs font-bold transition-all ${
-              loginMode === 'admin'
-                ? 'bg-indigo-600 text-white shadow-md shadow-indigo-600/30'
-                : 'text-slate-400 hover:text-white'
-            }`}
-          >
-            <ShieldCheck className="w-3.5 h-3.5" />
-            <span>Admin Login</span>
-          </button>
-        </div>
-
-        {/* Section Header */}
-        <div className="text-center space-y-1">
-          <div className="inline-flex items-center justify-center w-11 h-11 rounded-2xl bg-indigo-600/15 border border-indigo-500/30 text-indigo-400 mb-1">
-            {loginMode === 'user' ? <User className="w-5 h-5" /> : <Lock className="w-5 h-5" />}
+        {/* Header */}
+        <div className="text-center space-y-1.5">
+          <div className="inline-flex items-center justify-center w-12 h-12 rounded-2xl bg-indigo-600/15 border border-indigo-500/30 text-indigo-400 mb-2">
+            <Lock className="w-6 h-6" />
           </div>
-          <h2 className="text-xl font-bold text-white tracking-tight">
-            {loginMode === 'user' ? 'User Sign In' : 'Administrator Sign In'}
+          <h2 className="text-2xl font-bold text-white tracking-tight">
+            Sign In
           </h2>
           <p className="text-xs text-slate-400">
-            {loginMode === 'user' 
-              ? 'Simple and fast sign-in for platform members.' 
-              : 'Sign in to access protected demographics directories.'}
+            Enter your email and password to access your account.
           </p>
         </div>
 
-        {/* One-Click Fast Login for Users */}
-        {loginMode === 'user' && (
-          <button
-            type="button"
-            onClick={handleQuickDemoUserLogin}
-            disabled={isLoading}
-            className="w-full py-2.5 px-4 rounded-xl bg-slate-950 border border-indigo-500/30 hover:border-indigo-500/70 text-indigo-300 hover:text-white text-xs font-semibold flex items-center justify-center gap-2 transition-all group"
-          >
-            <Zap className="w-3.5 h-3.5 text-amber-400 group-hover:scale-110 transition-transform" />
-            <span>Quick 1-Click Fast Sign In</span>
-          </button>
-        )}
-
         {/* Alerts */}
         {error && (
-          <div className="p-3 rounded-xl bg-rose-950/50 border border-rose-500/40 text-rose-200 text-xs flex items-center gap-2 animate-in fade-in">
+          <div className="p-3.5 rounded-xl bg-rose-950/50 border border-rose-500/40 text-rose-200 text-xs flex items-center gap-2.5 animate-in fade-in">
             <AlertCircle className="w-4 h-4 text-rose-400 shrink-0" />
             <span>{error}</span>
           </div>
         )}
 
         {success && (
-          <div className="p-3 rounded-xl bg-emerald-950/50 border border-emerald-500/40 text-emerald-200 text-xs flex items-center gap-2 animate-in fade-in">
+          <div className="p-3.5 rounded-xl bg-emerald-950/50 border border-emerald-500/40 text-emerald-200 text-xs flex items-center gap-2.5 animate-in fade-in">
             <CheckCircle2 className="w-4 h-4 text-emerald-400 shrink-0" />
             <span>{success}</span>
           </div>
         )}
 
-        {/* Form */}
-        <form onSubmit={handleSubmit} className="space-y-3.5 text-xs">
+        {/* Clean Login Form */}
+        <form onSubmit={handleSubmit} className="space-y-4 text-xs">
           
           <div>
-            <label className="block font-semibold text-slate-300 mb-1 flex items-center gap-1.5">
+            <label className="block font-semibold text-slate-300 mb-1.5 flex items-center gap-1.5">
               <Mail className="w-3.5 h-3.5 text-indigo-400" />
               Email Address
             </label>
@@ -210,14 +149,14 @@ export const LoginPage = ({ onLoginSuccess, onCancel, initialMode = 'user' }) =>
               type="email"
               value={email}
               onChange={(e) => setEmail(e.target.value)}
-              placeholder={loginMode === 'user' ? 'name@example.com' : 'admin@population.org'}
+              placeholder="name@example.com"
               required
               className="w-full px-3.5 py-2.5 rounded-xl bg-slate-950/80 border border-slate-700 text-sm text-white placeholder-slate-500 focus:outline-none focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500"
             />
           </div>
 
           <div>
-            <label className="block font-semibold text-slate-300 mb-1 flex items-center justify-between">
+            <label className="block font-semibold text-slate-300 mb-1.5 flex items-center justify-between">
               <span className="flex items-center gap-1.5">
                 <KeyRound className="w-3.5 h-3.5 text-indigo-400" />
                 Password
@@ -235,7 +174,7 @@ export const LoginPage = ({ onLoginSuccess, onCancel, initialMode = 'user' }) =>
               <button
                 type="button"
                 onClick={() => setShowPassword(!showPassword)}
-                className="absolute right-3 top-2.5 text-slate-400 hover:text-slate-200"
+                className="absolute right-3 top-3 text-slate-400 hover:text-slate-200"
                 tabIndex={-1}
               >
                 {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
@@ -243,7 +182,7 @@ export const LoginPage = ({ onLoginSuccess, onCancel, initialMode = 'user' }) =>
             </div>
           </div>
 
-          <div className="flex items-center justify-between pt-0.5 text-slate-400">
+          <div className="flex items-center justify-between pt-1 text-slate-400">
             <label className="flex items-center gap-2 cursor-pointer select-none">
               <input
                 type="checkbox"
@@ -259,14 +198,14 @@ export const LoginPage = ({ onLoginSuccess, onCancel, initialMode = 'user' }) =>
             <button
               type="submit"
               disabled={isLoading}
-              className="w-full py-2.5 rounded-xl bg-gradient-to-r from-indigo-600 to-blue-600 hover:from-indigo-500 hover:to-blue-500 text-white font-bold text-sm shadow-xl shadow-indigo-600/25 flex items-center justify-center gap-2 transition-all disabled:opacity-50 cursor-pointer"
+              className="w-full py-3 rounded-xl bg-gradient-to-r from-indigo-600 to-blue-600 hover:from-indigo-500 hover:to-blue-500 text-white font-bold text-sm shadow-xl shadow-indigo-600/25 flex items-center justify-center gap-2 transition-all disabled:opacity-50 cursor-pointer"
             >
               {isLoading ? (
                 <span>Signing In...</span>
               ) : (
                 <>
                   <LogIn className="w-4 h-4" />
-                  <span>{loginMode === 'user' ? 'Sign In as User' : 'Sign In as Admin'}</span>
+                  <span>Sign In</span>
                   <ArrowRight className="w-4 h-4 ml-1" />
                 </>
               )}
@@ -274,7 +213,7 @@ export const LoginPage = ({ onLoginSuccess, onCancel, initialMode = 'user' }) =>
           </div>
 
           {onCancel && (
-            <div className="text-center pt-1.5">
+            <div className="text-center pt-2">
               <button
                 type="button"
                 onClick={onCancel}
@@ -286,6 +225,11 @@ export const LoginPage = ({ onLoginSuccess, onCancel, initialMode = 'user' }) =>
           )}
 
         </form>
+
+        <div className="pt-4 border-t border-slate-800 flex items-center justify-center gap-2 text-[11px] text-slate-500">
+          <ShieldCheck className="w-3.5 h-3.5 text-emerald-400" />
+          <span>Encrypted Session • Secure Authentication</span>
+        </div>
 
       </div>
 
