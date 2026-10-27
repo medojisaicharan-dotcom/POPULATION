@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Navbar } from './components/Navbar';
 import { LiveCounter } from './components/LiveCounter';
 import { StatsOverview } from './components/StatsOverview';
@@ -8,6 +8,8 @@ import { InteractiveWorldMap } from './components/InteractiveWorldMap';
 import { RegistrationForm } from './components/RegistrationForm';
 import { CountryDetailModal } from './components/CountryDetailModal';
 import { DataSourcesSection } from './components/DataSourcesSection';
+import { LoginPage } from './components/LoginPage';
+import { AdminDirectory } from './components/AdminDirectory';
 import { COUNTRIES_DATA, GLOBAL_METRICS } from './data/worldPopulationData';
 import { 
   Globe2, 
@@ -24,6 +26,25 @@ export default function App() {
   const [activeTab, setActiveTab] = useState('dashboard');
   const [selectedCountry, setSelectedCountry] = useState(null);
   const [comparisonList, setComparisonList] = useState([]);
+  const [adminUser, setAdminUser] = useState(() => {
+    try {
+      const stored = localStorage.getItem('gpi_admin_auth');
+      return stored ? JSON.parse(stored) : null;
+    } catch {
+      return null;
+    }
+  });
+
+  const handleLoginSuccess = (user) => {
+    setAdminUser(user);
+    setActiveTab('admin_directory');
+  };
+
+  const handleLogout = () => {
+    localStorage.removeItem('gpi_admin_auth');
+    setAdminUser(null);
+    setActiveTab('dashboard');
+  };
 
   // Add country to comparison list
   const handleAddToCompare = (country) => {
@@ -44,6 +65,9 @@ export default function App() {
       <Navbar
         activeTab={activeTab}
         setActiveTab={setActiveTab}
+        adminUser={adminUser}
+        onOpenLogin={() => setActiveTab('login')}
+        onLogout={handleLogout}
       />
 
       {/* Main Content Viewport */}
@@ -106,7 +130,7 @@ export default function App() {
                 </div>
                 <h3 className="font-bold text-white text-base mt-3">Public User Registration</h3>
                 <p className="text-xs text-slate-400 mt-1">
-                  Submit demographic profile details securely stored in Supabase PostgreSQL.
+                  Submit demographic profile details securely stored in PostgreSQL.
                 </p>
               </div>
             </div>
@@ -177,6 +201,33 @@ export default function App() {
           </div>
         )}
 
+        {/* TAB 7: AUTHENTICATION LOGIN PAGE */}
+        {activeTab === 'login' && (
+          <div className="space-y-6 animate-in fade-in duration-300">
+            <LoginPage
+              onLoginSuccess={handleLoginSuccess}
+              onCancel={() => setActiveTab('dashboard')}
+            />
+          </div>
+        )}
+
+        {/* TAB 8: PROTECTED ADMIN DIRECTORY */}
+        {activeTab === 'admin_directory' && (
+          <div className="space-y-6 animate-in fade-in duration-300">
+            {adminUser ? (
+              <AdminDirectory
+                adminUser={adminUser}
+                onLogout={handleLogout}
+              />
+            ) : (
+              <LoginPage
+                onLoginSuccess={handleLoginSuccess}
+                onCancel={() => setActiveTab('dashboard')}
+              />
+            )}
+          </div>
+        )}
+
       </main>
 
       {/* Global Interactive Country Detail Drawer / Modal */}
@@ -200,7 +251,7 @@ export default function App() {
               <div>
                 <span className="font-semibold text-sm text-white">Global Population Intelligence</span>
                 <p className="text-[11px] text-slate-500">
-                  Data Sources: United Nations DESA (WPP 2024), World Bank Open Data & Official Census Bureaus
+                  Data Sources: United Nations DESA, World Bank Open Data & Official Census Bureaus
                 </p>
               </div>
             </div>
@@ -213,7 +264,14 @@ export default function App() {
                 Methodology & Sources
               </button>
               <span>•</span>
-              <span className="text-slate-500">Official Reference Year: {GLOBAL_METRICS.referenceYear}</span>
+              <button 
+                onClick={() => setActiveTab(adminUser ? 'admin_directory' : 'login')} 
+                className="hover:text-slate-200 transition-colors"
+              >
+                {adminUser ? 'Admin Portal' : 'Admin Login'}
+              </button>
+              <span>•</span>
+              <span className="text-slate-500">Official Reference Sources</span>
             </div>
 
           </div>

@@ -5,16 +5,13 @@ import {
   MapPin, 
   TrendingUp, 
   UserPlus, 
-  Database, 
   Info,
+  LogIn,
   ShieldCheck,
-  Layers
+  UserCheck
 } from 'lucide-react';
-import { isSupabaseConfigured } from '../lib/supabase';
 
-export const Navbar = ({ activeTab, setActiveTab, onOpenDbConfig, livePopulation }) => {
-  const isDbLive = isSupabaseConfigured;
-
+export const Navbar = ({ activeTab, setActiveTab, adminUser, onOpenLogin, onLogout }) => {
   const navItems = [
     { id: 'dashboard', label: 'Dashboard', icon: BarChart3 },
     { id: 'countries', label: 'Countries & States', icon: MapPin },
@@ -43,9 +40,6 @@ export const Navbar = ({ activeTab, setActiveTab, onOpenDbConfig, livePopulation
               <div className="flex items-center gap-2">
                 <span className="font-bold text-lg tracking-tight bg-gradient-to-r from-white via-slate-100 to-slate-400 bg-clip-text text-transparent">
                   Global Population Intelligence
-                </span>
-                <span className="text-[10px] uppercase font-semibold px-1.5 py-0.5 rounded bg-indigo-500/10 text-indigo-400 border border-indigo-500/20">
-                  2024 Official
                 </span>
               </div>
               <p className="text-xs text-slate-400 hidden sm:block">
@@ -79,12 +73,38 @@ export const Navbar = ({ activeTab, setActiveTab, onOpenDbConfig, livePopulation
             })}
           </nav>
 
-          {/* Right Header info */}
+          {/* Right Header: Authentication Login Button */}
           <div className="flex items-center gap-2.5 shrink-0">
-            <span className="hidden sm:inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-slate-900 border border-slate-800 text-[11px] text-slate-400">
-              <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse" />
-              Live Demographics Feed
-            </span>
+            {adminUser ? (
+              <div className="flex items-center gap-2">
+                <button
+                  onClick={() => setActiveTab('admin_directory')}
+                  className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold border transition-all ${
+                    activeTab === 'admin_directory'
+                      ? 'bg-emerald-600 text-white border-emerald-500 shadow-md shadow-emerald-500/20'
+                      : 'bg-emerald-950/40 text-emerald-300 border-emerald-500/40 hover:bg-emerald-900/50'
+                  }`}
+                >
+                  <ShieldCheck className="w-3.5 h-3.5" />
+                  <span>Admin Portal</span>
+                </button>
+                <button
+                  onClick={onLogout}
+                  className="px-2.5 py-1.5 rounded-lg text-xs text-slate-400 hover:text-rose-400 hover:bg-slate-900 transition-colors"
+                  title="Sign Out"
+                >
+                  Sign Out
+                </button>
+              </div>
+            ) : (
+              <button
+                onClick={onOpenLogin}
+                className="flex items-center gap-1.5 px-3.5 py-1.5 rounded-xl bg-slate-900 hover:bg-slate-800 text-slate-200 hover:text-white border border-slate-700 text-xs font-semibold transition-all shadow-sm"
+              >
+                <LogIn className="w-3.5 h-3.5 text-indigo-400" />
+                <span>Admin Login</span>
+              </button>
+            )}
           </div>
 
         </div>
@@ -109,6 +129,19 @@ export const Navbar = ({ activeTab, setActiveTab, onOpenDbConfig, livePopulation
               </button>
             );
           })}
+          {adminUser && (
+            <button
+              onClick={() => setActiveTab('admin_directory')}
+              className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold whitespace-nowrap transition-all ${
+                activeTab === 'admin_directory'
+                  ? 'bg-emerald-600 text-white'
+                  : 'text-emerald-400 bg-emerald-950/40 border border-emerald-500/30'
+              }`}
+            >
+              <ShieldCheck className="w-3.5 h-3.5" />
+              Admin
+            </button>
+          )}
         </div>
       </div>
     </header>
