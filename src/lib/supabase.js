@@ -22,21 +22,22 @@ export const isSupabaseConfigured = Boolean(
 export const supabase = isSupabaseConfigured
   ? createClient(supabaseUrl, supabaseAnonKey, {
       auth: {
-        persistSession: false,
-        autoRefreshToken: false,
+        persistSession: true,
+        autoRefreshToken: true,
       },
     })
   : null;
 
-// Local storage key for fallback / caching
-const LOCAL_STORAGE_KEY = 'gpi_user_registrations';
+// Local storage keys for fallback / caching
+const LOCAL_STORAGE_REGISTRATIONS_KEY = 'gpi_user_registrations';
+const LOCAL_STORAGE_USERS_KEY = 'gpi_app_users';
 
 /**
  * Get cached local registrations
  */
 export const getLocalRegistrations = () => {
   try {
-    const raw = localStorage.getItem(LOCAL_STORAGE_KEY);
+    const raw = localStorage.getItem(LOCAL_STORAGE_REGISTRATIONS_KEY);
     return raw ? JSON.parse(raw) : [];
   } catch {
     return [];
@@ -44,7 +45,7 @@ export const getLocalRegistrations = () => {
 };
 
 /**
- * Save user registration to Supabase PostgreSQL with local cache
+ * Save user public registration to Supabase PostgreSQL (5 fields)
  */
 export const saveRegistration = async ({ fullName, email, gender, country, state }) => {
   const newRecord = {
@@ -76,7 +77,7 @@ export const saveRegistration = async ({ fullName, email, gender, country, state
         .select();
 
       if (error) {
-        console.warn('Supabase insert warning:', error.message);
+        console.warn('Supabase registration insert warning:', error.message);
         supabaseError = error.message;
       } else {
         supabaseSuccess = true;
@@ -86,16 +87,16 @@ export const saveRegistration = async ({ fullName, email, gender, country, state
         }
       }
     } catch (err) {
-      console.warn('Network error saving to Supabase:', err);
+      console.warn('Network error saving registration to Supabase:', err);
       supabaseError = err.message || 'Network error';
     }
   }
 
-  // Always store in local cache for instant UI feedback
+  // Cache locally
   try {
     const current = getLocalRegistrations();
-    const updated = [newRecord, ...current.filter(r => r.email !== newRecord.email)].slice(0, 50);
-    localStorage.setItem(LOCAL_STORAGE_KEY, JSON.stringify(updated));
+    const updated = [newRecord, ...current.filter(r => r.email !== newRecord.email)].slice(0, 100);
+    localStorage.setItem(LOCAL_STORAGE_REGISTRATIONS_KEY, JSON.stringify(updated));
   } catch (e) {
     console.error('Failed to cache registration in localStorage:', e);
   }
@@ -118,7 +119,7 @@ export const fetchRegistrations = async () => {
         .from('user_registrations')
         .select('*')
         .order('created_at', { ascending: false })
-        .limit(50);
+        .limit(100);
 
       if (!error && Array.isArray(data)) {
         return { data, source: 'supabase' };
@@ -129,6 +130,56 @@ export const fetchRegistrations = async () => {
   }
 
   return { data: getLocalRegistrations(), source: 'local' };
+};
+
+/**
+ * Save / Update user login account details in Supabase PostgreSQL
+ */
+export const saveUserAccount = async ({ email, role = 'user' }) => {
+  const userRecord = {
+    email: email.trim().toLowerCase(),
+    role,
+    last_login: new Date().toISOString()
+  };
+
+  let syncedToSupabase = false;
+
+  if (supabase && isSupabaseConfigured) {
+    try {
+      const { error } = await supabase
+        .from('app_users')
+        .upsert(
+          [
+            {
+              email: userRecord.email,
+              role: userRecord.role,
+              last_login: userRecord.last_login
+            }
+          ],
+          { onConflict: 'email' }
+        );
+
+      if (!error) {
+        syncedToSupabase = true;
+      } else {
+        console.warn('Supabase app_users upsert warning:', error.message);
+      }
+    } catch (err) {
+      console.warn('Failed to sync user account to Supabase:', err);
+    }
+  }
+
+  // Local storage cache
+  try {
+    const raw = localStorage.getItem(LOCAL_STORAGE_USERS_KEY);
+    const existing = raw ? JSON.parse(raw) : [];
+    const updated = [userRecord, ...existing.filter(u => u.email !== userRecord.email)];
+    localStorage.setItem(LOCAL_STORAGE_USERS_KEY, JSON.stringify(updated));
+  } catch (e) {
+    console.error('Failed to cache user account:', e);
+  }
+
+  return { success: true, syncedToSupabase };
 };
 
 /**

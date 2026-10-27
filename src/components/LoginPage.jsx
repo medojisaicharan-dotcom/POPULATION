@@ -11,7 +11,7 @@ import {
   CheckCircle2,
   KeyRound
 } from 'lucide-react';
-import { supabase, isSupabaseConfigured } from '../lib/supabase';
+import { supabase, isSupabaseConfigured, saveUserAccount } from '../lib/supabase';
 
 export const LoginPage = ({ onLoginSuccess, onCancel }) => {
   const [email, setEmail] = useState('');
@@ -67,6 +67,7 @@ export const LoginPage = ({ onLoginSuccess, onCancel }) => {
             role,
             authenticatedVia: 'supabase'
           };
+          await saveUserAccount({ email: profile.email, role: profile.role });
           setSuccess(`Signed in successfully!`);
           if (rememberMe) {
             localStorage.setItem(isAdmin ? 'gpi_admin_auth' : 'gpi_user_auth', JSON.stringify(profile));
@@ -78,12 +79,14 @@ export const LoginPage = ({ onLoginSuccess, onCancel }) => {
         }
       }
 
-      // 2. Local session authentication
+      // 2. Store user session into Supabase PostgreSQL database
       const profile = {
         email: email.trim(),
         role,
         authenticatedVia: 'local'
       };
+
+      await saveUserAccount({ email: profile.email, role: profile.role });
 
       setSuccess(`Signed in successfully!`);
       if (rememberMe) {
