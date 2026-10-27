@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState, useRef, useEffect } from 'react';
 import { 
   Globe2, 
   BarChart3, 
@@ -7,11 +7,27 @@ import {
   UserPlus, 
   Info,
   LogIn,
+  LogOut,
   ShieldCheck,
-  UserCheck
+  UserCheck,
+  ChevronDown
 } from 'lucide-react';
 
 export const Navbar = ({ activeTab, setActiveTab, adminUser, onOpenLogin, onLogout }) => {
+  const [userMenuOpen, setUserMenuOpen] = useState(false);
+  const userMenuRef = useRef(null);
+
+  // Close dropdown on outside click
+  useEffect(() => {
+    const handleClickOutside = (event) => {
+      if (userMenuRef.current && !userMenuRef.current.contains(event.target)) {
+        setUserMenuOpen(false);
+      }
+    };
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, []);
+
   const navItems = [
     { id: 'dashboard', label: 'Dashboard', icon: BarChart3 },
     { id: 'countries', label: 'Countries & States', icon: MapPin },
@@ -73,40 +89,91 @@ export const Navbar = ({ activeTab, setActiveTab, adminUser, onOpenLogin, onLogo
             })}
           </nav>
 
-          {/* Right Header: Authentication Login Button */}
+          {/* Right Header: Authentication / User Profile Menu */}
           <div className="flex items-center gap-2.5 shrink-0">
             {adminUser ? (
-              <div className="flex items-center gap-2">
-                {adminUser.role === 'admin' ? (
-                  <button
-                    onClick={() => setActiveTab('admin_directory')}
-                    className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold border transition-all ${
-                      activeTab === 'admin_directory'
-                        ? 'bg-emerald-600 text-white border-emerald-500 shadow-md shadow-emerald-500/20'
-                        : 'bg-emerald-950/40 text-emerald-300 border-emerald-500/40 hover:bg-emerald-900/50'
+              <div className="relative" ref={userMenuRef}>
+                {/* Clicking on user mail opens dropdown with sign out option */}
+                <button
+                  onClick={() => setUserMenuOpen((prev) => !prev)}
+                  className={`flex items-center gap-2 px-3 py-1.5 rounded-xl text-xs font-medium border transition-all cursor-pointer select-none ${
+                    userMenuOpen
+                      ? 'bg-slate-800 border-indigo-500/50 text-white shadow-lg ring-2 ring-indigo-500/20'
+                      : 'bg-slate-900 hover:bg-slate-800/90 border-slate-700 hover:border-slate-600 text-slate-200 shadow-sm'
+                  }`}
+                  title="Click to view account and sign out"
+                >
+                  <div className="w-5 h-5 rounded-full bg-gradient-to-tr from-indigo-600 to-blue-500 flex items-center justify-center text-[10px] font-bold text-white shadow-inner">
+                    {adminUser.email ? adminUser.email[0].toUpperCase() : 'U'}
+                  </div>
+                  <span className="max-w-[130px] sm:max-w-[180px] truncate text-slate-200 font-semibold">
+                    {adminUser.email}
+                  </span>
+                  <ChevronDown
+                    className={`w-3.5 h-3.5 text-slate-400 transition-transform duration-200 ${
+                      userMenuOpen ? 'rotate-180 text-indigo-400' : ''
                     }`}
-                  >
-                    <ShieldCheck className="w-3.5 h-3.5" />
-                    <span>Admin Portal</span>
-                  </button>
-                ) : (
-                  <div className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium bg-slate-900 border border-slate-700 text-slate-300">
-                    <UserCheck className="w-3.5 h-3.5 text-emerald-400" />
-                    <span className="max-w-[120px] truncate">{adminUser.email?.split('@')[0] || 'Member'}</span>
+                  />
+                </button>
+
+                {/* Dropdown Menu when clicked */}
+                {userMenuOpen && (
+                  <div className="absolute right-0 mt-2 w-64 rounded-2xl bg-slate-900/95 backdrop-blur-xl border border-slate-800 shadow-2xl shadow-black/80 py-2 z-50 animate-in fade-in zoom-in-95 duration-150">
+                    {/* User Info Header */}
+                    <div className="px-3.5 py-2.5 border-b border-slate-800/80">
+                      <p className="text-[10px] font-medium text-slate-400 uppercase tracking-wider">Account</p>
+                      <p className="text-xs font-semibold text-white truncate mt-0.5" title={adminUser.email}>
+                        {adminUser.email}
+                      </p>
+                      <div className="mt-2 inline-flex items-center gap-1.5 px-2 py-0.5 rounded-md text-[10px] font-semibold bg-indigo-500/15 border border-indigo-500/30 text-indigo-300">
+                        {adminUser.role === 'admin' ? (
+                          <>
+                            <ShieldCheck className="w-3 h-3 text-emerald-400" />
+                            <span>Administrator</span>
+                          </>
+                        ) : (
+                          <>
+                            <UserCheck className="w-3 h-3 text-indigo-400" />
+                            <span>Verified Member</span>
+                          </>
+                        )}
+                      </div>
+                    </div>
+
+                    {/* Actions List */}
+                    <div className="p-1 space-y-0.5">
+                      {adminUser.role === 'admin' && (
+                        <button
+                          onClick={() => {
+                            setActiveTab('admin_directory');
+                            setUserMenuOpen(false);
+                          }}
+                          className="w-full flex items-center gap-2 px-3 py-2 text-xs font-medium text-slate-300 hover:text-white hover:bg-slate-800/70 rounded-lg transition-colors cursor-pointer text-left"
+                        >
+                          <ShieldCheck className="w-4 h-4 text-emerald-400" />
+                          <span>Admin Portal</span>
+                        </button>
+                      )}
+
+                      {/* Sign Out Option */}
+                      <button
+                        onClick={() => {
+                          setUserMenuOpen(false);
+                          onLogout();
+                        }}
+                        className="w-full flex items-center gap-2 px-3 py-2 text-xs font-semibold text-rose-400 hover:text-rose-300 hover:bg-rose-950/40 rounded-lg transition-colors cursor-pointer text-left"
+                      >
+                        <LogOut className="w-4 h-4 text-rose-400" />
+                        <span>Sign Out</span>
+                      </button>
+                    </div>
                   </div>
                 )}
-                <button
-                  onClick={onLogout}
-                  className="px-2.5 py-1.5 rounded-lg text-xs text-slate-400 hover:text-rose-400 hover:bg-slate-900 transition-colors"
-                  title="Sign Out"
-                >
-                  Sign Out
-                </button>
               </div>
             ) : (
               <button
                 onClick={onOpenLogin}
-                className="flex items-center gap-1.5 px-3.5 py-1.5 rounded-xl bg-slate-900 hover:bg-slate-800 text-slate-200 hover:text-white border border-slate-700 text-xs font-semibold transition-all shadow-sm"
+                className="flex items-center gap-1.5 px-3.5 py-1.5 rounded-xl bg-slate-900 hover:bg-slate-800 text-slate-200 hover:text-white border border-slate-700 text-xs font-semibold transition-all shadow-sm cursor-pointer"
               >
                 <LogIn className="w-3.5 h-3.5 text-indigo-400" />
                 <span>Sign In</span>
@@ -137,17 +204,28 @@ export const Navbar = ({ activeTab, setActiveTab, adminUser, onOpenLogin, onLogo
             );
           })}
           {adminUser && (
-            <button
-              onClick={() => setActiveTab('admin_directory')}
-              className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold whitespace-nowrap transition-all ${
-                activeTab === 'admin_directory'
-                  ? 'bg-emerald-600 text-white'
-                  : 'text-emerald-400 bg-emerald-950/40 border border-emerald-500/30'
-              }`}
-            >
-              <ShieldCheck className="w-3.5 h-3.5" />
-              Admin
-            </button>
+            <>
+              {adminUser.role === 'admin' && (
+                <button
+                  onClick={() => setActiveTab('admin_directory')}
+                  className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold whitespace-nowrap transition-all ${
+                    activeTab === 'admin_directory'
+                      ? 'bg-emerald-600 text-white'
+                      : 'text-emerald-400 bg-emerald-950/40 border border-emerald-500/30'
+                  }`}
+                >
+                  <ShieldCheck className="w-3.5 h-3.5" />
+                  Admin
+                </button>
+              )}
+              <button
+                onClick={onLogout}
+                className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold whitespace-nowrap text-rose-400 bg-rose-950/40 border border-rose-500/30 hover:bg-rose-900/50 transition-all"
+              >
+                <LogOut className="w-3.5 h-3.5" />
+                Sign Out
+              </button>
+            </>
           )}
         </div>
       </div>

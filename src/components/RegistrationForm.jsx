@@ -11,11 +11,13 @@ import {
   Layers, 
   Sparkles,
   ArrowRight,
-  RefreshCw
+  RefreshCw,
+  ExternalLink,
+  Database
 } from 'lucide-react';
 import { COUNTRIES_DATA } from '../data/worldPopulationData';
 import { getStateNamesForCountry } from '../data/statesData';
-import { saveRegistration } from '../lib/supabase';
+import { saveRegistration, isSupabaseConfigured, supabase } from '../lib/supabase';
 
 export const RegistrationForm = () => {
   const [formData, setFormData] = useState({
@@ -29,6 +31,36 @@ export const RegistrationForm = () => {
   const [availableStates, setAvailableStates] = useState([]);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [feedback, setFeedback] = useState(null); // { type: 'success' | 'error', message: string }
+  const [dbStatus, setDbStatus] = useState('checking'); // 'checking' | 'ready' | 'missing_tables' | 'no_config'
+
+  // Check Supabase tables on mount
+  useEffect(() => {
+    const checkDb = async () => {
+      if (!isSupabaseConfigured || !supabase) {
+        setDbStatus('no_config');
+        return;
+      }
+      try {
+        const { error } = await supabase
+          .from('user_registrations')
+          .select('count', { count: 'exact', head: true });
+        if (!error) {
+          setDbStatus('ready');
+        } else if (
+          error.message?.includes('schema cache') ||
+          error.message?.includes('does not exist') ||
+          error.message?.includes('relation')
+        ) {
+          setDbStatus('missing_tables');
+        } else {
+          setDbStatus('ready'); // other errors (like RLS) mean table exists
+        }
+      } catch {
+        setDbStatus('no_config');
+      }
+    };
+    checkDb();
+  }, []);
 
   // When Country changes, automatically update the State dropdown options!
   useEffect(() => {
@@ -87,35 +119,40 @@ export const RegistrationForm = () => {
     try {
       const result = await saveRegistration(formData);
 
-      if (result.success) {
-        // Trigger celebratory confetti
+      if (result.syncedToSupabase) {
+        // Successfully saved to Supabase — trigger celebratory confetti
         try {
-          confetti({
-            particleCount: 80,
-            spread: 70,
-            origin: { y: 0.6 }
-          });
+          confetti({ particleCount: 80, spread: 70, origin: { y: 0.6 } });
         } catch {
-          // ignore if canvas-confetti is not loaded
+          // ignore
         }
 
         setFeedback({
           type: 'success',
-          message: 'Thank you for registering! Your demographic details have been securely recorded.'
+          message: '✅ Registration saved to Supabase! Your demographic details are now in the database.'
         });
 
         // Reset form fields
-        setFormData({
-          fullName: '',
-          email: '',
-          gender: '',
-          country: '',
-          state: ''
+        setFormData({ fullName: '', email: '', gender: '', country: '', state: '' });
+      } else if (result.savedLocally && result.supabaseError) {
+        // Saved locally but NOT in Supabase — show specific error
+        setFeedback({
+          type: 'error',
+          message: result.supabaseError
         });
+        // If tables are missing, update dbStatus banner
+        if (
+          result.supabaseError.includes('schema cache') ||
+          result.supabaseError.includes('does not exist') ||
+          result.supabaseError.includes('SQL schema') ||
+          result.supabaseError.includes('not set up')
+        ) {
+          setDbStatus('missing_tables');
+        }
       } else {
         setFeedback({
           type: 'error',
-          message: result.supabaseError || 'Failed to submit registration. Please try again.'
+          message: result.supabaseError || 'Failed to submit. Please check your Supabase setup.'
         });
       }
     } catch (err) {
@@ -144,8 +181,34 @@ export const RegistrationForm = () => {
           <p className="text-xs sm:text-sm text-slate-300 mt-2 max-w-2xl leading-relaxed">
             Register your profile with the Global Population Intelligence system. All submitted details are encrypted and securely stored.
           </p>
+
+          {/* DB Status Indicators */}
+          {dbStatus === 'ready' && (
+            <div className="inline-flex items-center gap-2 mt-3 px-3 py-1 rounded-full bg-emerald-500/10 border border-emerald-500/30 text-emerald-300 text-xs">
+              <Database className="w-3 h-3" />
+              Supabase database connected and ready
+            </div>
+          )}
         </div>
       </div>
+
+      {/* Missing Tables Warning Banner */}
+      {dbStatus === 'missing_tables' && (
+        <div className="p-4 rounded-xl bg-amber-950/50 border border-amber-500/40 text-amber-200 text-xs space-y-2">
+          <div className="flex items-center gap-2 font-bold text-sm text-amber-300">
+            <AlertCircle className="w-4 h-4 shrink-0" />
+            Database Tables Not Set Up Yet
+          </div>
+          <p>The <code className="bg-amber-900/40 px-1 rounded">user_registrations</code> table does not exist in your Supabase project. You need to run the SQL schema first.</p>
+          <p className="font-semibold">Steps to fix:</p>
+          <ol className="list-decimal list-inside space-y-1 ml-1">
+            <li>Open the <a href="https://supabase.com/dashboard/project/ysclhkhxddmktbjckpin/sql/new" target="_blank" rel="noopener noreferrer" className="text-amber-300 underline inline-flex items-center gap-1">Supabase SQL Editor <ExternalLink className="w-3 h-3" /></a></li>
+            <li>Copy the entire contents of <code className="bg-amber-900/40 px-1 rounded">supabase_schema.sql</code> from your project folder</li>
+            <li>Paste it in the SQL editor and click <strong>Run</strong></li>
+            <li>Refresh this page — registrations will then save to Supabase</li>
+          </ol>
+        </div>
+      )}
 
       {/* Main Registration Form Card */}
       <div className="p-6 sm:p-8 rounded-2xl bg-slate-900/90 border border-slate-800 shadow-2xl">

@@ -1,10 +1,10 @@
 import { createClient } from '@supabase/supabase-js';
 
-// Retrieve credentials from environment or browser configuration
+// Retrieve credentials from environment variables
 const envUrl = import.meta.env.VITE_SUPABASE_URL;
 const envKey = import.meta.env.VITE_SUPABASE_ANON_KEY;
 
-// Check localStorage for user-provided runtime configuration
+// Check localStorage for user-provided runtime configuration (fallback)
 const localUrl = typeof window !== 'undefined' ? localStorage.getItem('GMI_SUPABASE_URL') : null;
 const localKey = typeof window !== 'undefined' ? localStorage.getItem('GMI_SUPABASE_ANON_KEY') : null;
 
@@ -46,6 +46,7 @@ export const getLocalRegistrations = () => {
 
 /**
  * Save user public registration to Supabase PostgreSQL (5 fields)
+ * Returns { success, data, syncedToSupabase, supabaseError }
  */
 export const saveRegistration = async ({ fullName, email, gender, country, state }) => {
   const newRecord = {
@@ -77,8 +78,17 @@ export const saveRegistration = async ({ fullName, email, gender, country, state
         .select();
 
       if (error) {
-        console.warn('Supabase registration insert warning:', error.message);
+        console.error('Supabase registration insert error:', error);
         supabaseError = error.message;
+        // Detect table-not-found specifically
+        if (
+          error.message?.includes('relation') ||
+          error.message?.includes('does not exist') ||
+          error.message?.includes('schema cache')
+        ) {
+          supabaseError =
+            'Database tables not set up yet. Please run the SQL schema in your Supabase SQL Editor at: https://supabase.com/dashboard/project/ysclhkhxddmktbjckpin/sql';
+        }
       } else {
         supabaseSuccess = true;
         if (data && data[0]) {
@@ -87,12 +97,14 @@ export const saveRegistration = async ({ fullName, email, gender, country, state
         }
       }
     } catch (err) {
-      console.warn('Network error saving registration to Supabase:', err);
-      supabaseError = err.message || 'Network error';
+      console.error('Network error saving registration to Supabase:', err);
+      supabaseError = err.message || 'Network error contacting Supabase';
     }
+  } else {
+    supabaseError = 'Supabase is not configured. Check your VITE_SUPABASE_URL and VITE_SUPABASE_ANON_KEY in .env';
   }
 
-  // Cache locally
+  // Always cache locally as backup regardless of Supabase outcome
   try {
     const current = getLocalRegistrations();
     const updated = [newRecord, ...current.filter(r => r.email !== newRecord.email)].slice(0, 100);
@@ -102,7 +114,8 @@ export const saveRegistration = async ({ fullName, email, gender, country, state
   }
 
   return {
-    success: true,
+    success: supabaseSuccess, // true ONLY if Supabase saved it
+    savedLocally: true,       // always saved locally
     data: newRecord,
     syncedToSupabase: supabaseSuccess,
     supabaseError
@@ -119,10 +132,13 @@ export const fetchRegistrations = async () => {
         .from('user_registrations')
         .select('*')
         .order('created_at', { ascending: false })
-        .limit(100);
+        .limit(500);
 
       if (!error && Array.isArray(data)) {
         return { data, source: 'supabase' };
+      }
+      if (error) {
+        console.warn('fetchRegistrations Supabase error:', error.message);
       }
     } catch (err) {
       console.warn('Could not fetch from Supabase, loading local cache:', err);
@@ -183,17 +199,27 @@ export const saveUserAccount = async ({ email, role = 'user' }) => {
 };
 
 /**
- * Test Supabase connection
+ * Test Supabase connection and check if tables exist
  */
 export const testSupabaseConnection = async (testUrl, testKey) => {
   try {
     const client = createClient(testUrl, testKey);
-    const { error } = await client.from('user_registrations').select('count', { count: 'exact', head: true });
-    if (error && error.code !== 'PGRST116') {
-      return { connected: false, message: error.message };
+    const { error } = await client
+      .from('user_registrations')
+      .select('count', { count: 'exact', head: true });
+
+    if (!error) {
+      return { connected: true, tablesExist: true, message: 'Connected! Tables are ready.' };
     }
-    return { connected: true, message: 'Connected successfully to Supabase PostgreSQL!' };
+    if (error.message?.includes('schema cache') || error.message?.includes('does not exist')) {
+      return {
+        connected: true,
+        tablesExist: false,
+        message: 'Connected to Supabase, but tables are missing. Please run supabase_schema.sql in the SQL Editor.'
+      };
+    }
+    return { connected: false, tablesExist: false, message: error.message };
   } catch (err) {
-    return { connected: false, message: err.message || 'Connection failed' };
+    return { connected: false, tablesExist: false, message: err.message || 'Connection failed' };
   }
 };
