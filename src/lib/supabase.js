@@ -2,7 +2,7 @@ import { createClient } from '@supabase/supabase-js';
 
 // Retrieve credentials from environment variables (with fallback for deployed builds)
 const envUrl = import.meta.env.VITE_SUPABASE_URL || 'https://ysclhkhxddmktbjckpin.supabase.co';
-const envKey = import.meta.env.VITE_SUPABASE_ANON_KEY || 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InlzY2xoa2h4ZGRta3RiamNrcGluIiwicm9sZSI6ImFub24iLCJpYXQiOjE3OTMxMDUxMzAsImV4cCI6MjEwODY4MTEzMH0.NLR4KjjpcCx-3j1202pRvCgzBlW9fbZlC4s7GHkdUPk';
+const envKey = import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY || import.meta.env.VITE_SUPABASE_ANON_KEY || 'sb_publishable_1JwA6zMaCB280c5L4sTZWQ_0gDnR5Gy';
 
 // Check localStorage for user-provided runtime configuration (fallback)
 const localUrl = typeof window !== 'undefined' ? localStorage.getItem('GMI_SUPABASE_URL') : null;
